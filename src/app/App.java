@@ -1,11 +1,5 @@
 package app;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.List;
-
 import com.google.gson.Gson;
 import gui.Gui;
 import json_import.EdgeImport;
@@ -13,6 +7,12 @@ import json_import.Result;
 import json_import.VertexImport;
 import json_import_avs.MeshNode;
 import json_import_avs.UnityMapStructure;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.List;
 
 
 /**
@@ -30,6 +30,7 @@ public class App {
         Gson gson = new Gson();
 
 		readAlgoFile(graph, gson);
+//        readNavMesh(graph, gson);
 
         // init GUI
         Gui gui = new Gui(graph);
@@ -39,7 +40,61 @@ public class App {
 
         System.out.println("End - Graphprogramm");
     }
+    private static void readNavMesh(Graph graph, Gson gson) {
+        BufferedReader br = null;
+        try {
+            // graph11 und 12 sind zu groß und können nicht mehr geladen werden
+            // graph4_16 graph7_128 graph10_1024
+            br = new BufferedReader(new FileReader("demoList.json"));
 
+            UnityMapStructure res = gson.fromJson(br, UnityMapStructure.class);
+
+            if (res == null) {
+                System.out.println("Could not read json!");
+                return;
+            }
+
+
+            List<MeshNode> navMesh = res.getNavMesh();
+
+            // add all vertices
+            for (MeshNode node: navMesh) {
+                int id = node.getId();
+                System.out.println(node);
+                Position pos = node.getPos().convert();
+
+                graph.addVertex(new Vertex(id, pos));
+            }
+
+            // generate edges
+            for (MeshNode node: navMesh) {
+                Vertex from = graph.getVertex(node.getId());
+                List<Integer> nextNodes = node.getNextNodes();
+                for (int nodeId: nextNodes) {
+                    Vertex to = graph.getVertex(nodeId);
+
+                    int a = Math.abs(from.getPosition().x - to.getPosition().x);
+                    int b = Math.abs(from.getPosition().y - to.getPosition().y);
+                    int weight = (int) Math.sqrt((a * a) + (b * b));
+
+                    graph.addEdge(from, to);
+                }
+            }
+
+            graph.printAdjacentList();
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } finally {
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 
     private static void readAlgoFile(Graph graph, Gson gson) {
         BufferedReader br = null;
